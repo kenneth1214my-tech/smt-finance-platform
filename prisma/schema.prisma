@@ -271,6 +271,27 @@ model Payable {
   createdAt    DateTime   @default(now())
 }
 
+enum ExpenseCategory {
+  SELLING
+  ADMIN
+  RND
+  FINANCE
+}
+
+// One-time mapping from a real P&L line-item label (e.g. "Bank Charges", "Salaries") to which
+// of MonthlyFinancial's 4 expense categories it belongs to. The Smart P&L Import parser can't
+// reliably guess this from an arbitrary chart of accounts — an admin classifies each real label
+// once here (surfaced inline during P&L import), and every future import reuses it
+// automatically. Deliberately NOT scoped by subsidiary: the same account label (e.g.
+// "Salaries") means the same category everywhere in the group.
+model ExpenseCategoryMapping {
+  id           String          @id @default(cuid())
+  accountLabel String          @unique
+  category     ExpenseCategory
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
+}
+
 model Project {
   id           String        @id @default(cuid())
   nameZh       String
