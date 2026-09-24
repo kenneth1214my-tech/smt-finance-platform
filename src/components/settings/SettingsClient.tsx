@@ -1411,6 +1411,7 @@ function DataTab({
   const router = useRouter();
   const searchParams = useSearchParams();
   const [disconnecting, setDisconnecting] = useState(false);
+  const [deletingImportId, setDeletingImportId] = useState<string | null>(null);
 
   useEffect(() => {
     const xero = searchParams.get("xero");
@@ -1430,6 +1431,15 @@ function DataTab({
       onToast(isZh ? "已断开 Xero 连接" : "Xero disconnected");
       router.refresh();
     }
+  }
+
+  async function deleteImportBatch(id: string) {
+    if (!confirm(isZh ? "确定要删除这条导入记录吗？（仅删除日志，不影响已导入的数据）" : "Delete this import log entry? (only removes the log — the data it imported stays untouched)")) return;
+    setDeletingImportId(id);
+    const res = await fetch(`/api/admin/import-batches/${id}`, { method: "DELETE" });
+    setDeletingImportId(null);
+    if (res.ok) router.refresh();
+    else onToast(isZh ? "删除失败，请重试" : "Delete failed — please try again");
   }
 
   const erpRows: { name: string; status: "connected" | "not_connected" | "coming_soon"; note?: string }[] = [
@@ -1545,6 +1555,7 @@ function DataTab({
                   <th className="pb-2 text-right">{isZh ? "成功行数" : "Rows"}</th>
                   <th className="pb-2">{isZh ? "操作人" : "By"}</th>
                   <th className="pb-2">{isZh ? "时间" : "Time"}</th>
+                  <th className="pb-2"></th>
                 </tr>
               </thead>
               <tbody>
@@ -1559,6 +1570,16 @@ function DataTab({
                     </td>
                     <td className="py-2.5" style={{ color: "var(--ink-400)" }}>
                       {new Date(b.createdAt).toLocaleString(isZh ? "zh-CN" : "en-US")}
+                    </td>
+                    <td className="py-2.5 text-right">
+                      <button
+                        onClick={() => deleteImportBatch(b.id)}
+                        disabled={deletingImportId === b.id}
+                        className="rounded-lg px-2.5 py-1 text-[11.5px] font-bold disabled:opacity-50"
+                        style={{ background: "var(--surface-2)", color: "var(--status-critical)" }}
+                      >
+                        {isZh ? "删除" : "Delete"}
+                      </button>
                     </td>
                   </tr>
                 ))}
