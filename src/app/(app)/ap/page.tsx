@@ -29,7 +29,7 @@ export default async function APPage(props: PageProps<"/ap">) {
 
   const [allVendors, monthly] = await Promise.all([
     db.payable.findMany({ include: { subsidiary: true }, orderBy: { balance: "desc" } }),
-    db.monthlyFinancial.findMany({ where: { year: 2026 } }),
+    db.monthlyFinancial.findMany({ where: { year: new Date().getFullYear() } }),
   ]);
   // KPIs/aging buckets recompute from the SELECTED scope, not the full list — so "Group HQ"
   // never shows the subsidiary's vendors mixed into its own AP totals, and vice versa.

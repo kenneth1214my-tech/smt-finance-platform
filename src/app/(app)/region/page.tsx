@@ -22,11 +22,12 @@ export default async function RegionPage() {
   const fmtM = (n: number) => fmtMoney(n, locale);
 
   const regions = await db.region.findMany({ orderBy: { sortOrder: "asc" } });
-  const monthly = await db.regionMonthlyFinancial.findMany({ where: { year: { in: [2025, 2026] } } });
+  const currentYear = new Date().getFullYear();
+  const monthly = await db.regionMonthlyFinancial.findMany({ where: { year: { in: [currentYear - 1, currentYear] } } });
 
   const rows = regions.map((r, i) => {
-    const cur = monthly.filter((m) => m.regionId === r.id && m.year === 2026);
-    const prev = monthly.filter((m) => m.regionId === r.id && m.year === 2025);
+    const cur = monthly.filter((m) => m.regionId === r.id && m.year === currentYear);
+    const prev = monthly.filter((m) => m.regionId === r.id && m.year === currentYear - 1);
     const revenue = cur.reduce((a, m) => a + Number(m.revenue), 0);
     const netProfit = cur.reduce((a, m) => a + Number(m.netProfit), 0);
     const prevRevenue = prev.reduce((a, m) => a + Number(m.revenue), 0);

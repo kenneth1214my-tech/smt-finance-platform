@@ -29,7 +29,7 @@ export default async function ARPage(props: PageProps<"/ar">) {
 
   const [allCustomers, monthly] = await Promise.all([
     db.aRCustomer.findMany({ include: { subsidiary: true }, orderBy: { balance: "desc" } }),
-    db.monthlyFinancial.findMany({ where: { year: 2026 } }),
+    db.monthlyFinancial.findMany({ where: { year: new Date().getFullYear() } }),
   ]);
   // KPIs/aging buckets recompute from the SELECTED scope, not the full list — so "Group HQ"
   // never shows the subsidiary's customers mixed into its own AR totals, and vice versa.

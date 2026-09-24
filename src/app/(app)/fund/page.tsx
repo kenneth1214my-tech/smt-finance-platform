@@ -22,7 +22,7 @@ export default async function FundPage() {
   const fmtM = (n: number) => fmtMoney(n, locale);
 
   const banks = await db.bankAccount.findMany({ include: { subsidiary: true }, orderBy: { balance: "desc" } });
-  const cashflow = await db.cashFlowMonthly.findMany({ where: { year: 2026 }, orderBy: { month: "asc" } });
+  const cashflow = await db.cashFlowMonthly.findMany({ where: { year: new Date().getFullYear() }, orderBy: { month: "asc" } });
   const baseCurrency = await getBaseCurrency();
   const dict = withBaseCurrency(getDictionary(locale), locale, baseCurrency);
   const rates = await getExchangeRates();
