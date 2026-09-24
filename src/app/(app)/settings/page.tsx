@@ -100,6 +100,8 @@ export default async function SettingsPage() {
           companyName={companyName}
           hqEquity={systemSetting ? Number(systemSetting.equity) : 0}
           hqDebtRatio={systemSetting ? Number(systemSetting.debtRatio) : 0}
+          hqInvestmentInSubsidiaries={systemSetting ? Number(systemSetting.investmentInSubsidiaries) : 0}
+          hqDueToSubsidiaries={systemSetting ? Number(systemSetting.dueToSubsidiaries) : 0}
           hqHeadcount={systemSetting?.headcount ?? 0}
           xeroConnected={Boolean(xeroConnection?.connectedAt)}
           xeroTenantName={xeroConnection?.tenantName ?? null}
