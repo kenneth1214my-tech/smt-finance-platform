@@ -145,6 +145,9 @@ model Subsidiary {
   projects         Project[]
   riskAlerts       RiskAlert[]
   bankAccounts     BankAccount[]
+  corporateTaxProvisions CorporateTaxProvision[]
+  taxFilings             TaxFiling[]
+  deferredTaxItems       DeferredTaxItem[]
 }
 
 model Region {
@@ -477,4 +480,65 @@ model AuditFinding {
   detectionType      String          @default("AUTOMATED")
   createdAt          DateTime        @default(now())
   updatedAt          DateTime        @updatedAt
+}
+
+enum TaxFilingType {
+  ECI
+  FORM_C_S
+  GST_F5
+}
+
+enum TaxFilingStatus {
+  UPCOMING
+  FILED
+  OVERDUE
+  PAID
+}
+
+model CorporateTaxProvision {
+  id               String      @id @default(cuid())
+  // null = group/HQ-level, not tied to any single subsidiary.
+  subsidiaryId     String?
+  subsidiary       Subsidiary? @relation(fields: [subsidiaryId], references: [id])
+  year             Int
+  chargeableIncome Decimal     @db.Decimal(14, 2)
+  taxRatePct       Decimal     @default(17) @db.Decimal(5, 2)
+  rebatePct        Decimal     @default(0) @db.Decimal(5, 2)
+  rebateCap        Decimal     @default(0) @db.Decimal(14, 2)
+  notes            String?     @db.Text
+  createdAt        DateTime    @default(now())
+  updatedAt        DateTime    @updatedAt
+
+  @@unique([subsidiaryId, year])
+}
+
+model TaxFiling {
+  id           String          @id @default(cuid())
+  subsidiaryId String?
+  subsidiary   Subsidiary?     @relation(fields: [subsidiaryId], references: [id])
+  type         TaxFilingType
+  periodLabel  String
+  dueDate      DateTime
+  filedAt      DateTime?
+  outputTax    Decimal?        @db.Decimal(14, 2)
+  inputTax     Decimal?        @db.Decimal(14, 2)
+  amount       Decimal?        @db.Decimal(14, 2)
+  paidAt       DateTime?
+  status       TaxFilingStatus @default(UPCOMING)
+  notes        String?         @db.Text
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
+}
+
+model DeferredTaxItem {
+  id                  String      @id @default(cuid())
+  subsidiaryId        String?
+  subsidiary          Subsidiary? @relation(fields: [subsidiaryId], references: [id])
+  year                Int
+  description         String
+  temporaryDifference Decimal     @db.Decimal(14, 2)
+  deferredTaxAmount   Decimal     @db.Decimal(14, 2)
+  notes               String?     @db.Text
+  createdAt           DateTime    @default(now())
+  updatedAt           DateTime    @updatedAt
 }
