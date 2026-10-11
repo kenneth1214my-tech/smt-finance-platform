@@ -11,6 +11,8 @@ import KpiTile from "@/components/ui/KpiTile";
 import Ring from "@/components/ui/Ring";
 import TrendChart from "@/components/ui/TrendChart";
 import BarChart from "@/components/ui/BarChart";
+import KpiBreakdown from "@/components/ui/KpiBreakdown";
+import { monthlyFlowSection, type BreakdownSection } from "@/lib/treasury-breakdown";
 
 const fmt1 = (n: number) => n.toLocaleString("en-US", { minimumFractionDigits: 1, maximumFractionDigits: 1 });
 const BANK_TYPE_KEY: Record<string, keyof ReturnType<typeof getDictionary>["m"]> = { main: "bankTypeMain", general: "bankTypeGeneral", fx: "bankTypeFx" };
@@ -58,6 +60,37 @@ export default async function FundPage() {
   const creditUsed = 0;
   const creditUsePct = creditTotal > 0 ? (creditUsed / creditTotal) * 100 : 0;
 
+  // ---- Workings behind each KPI tile (see KpiBreakdown) ----
+  const t = (zh: string, en: string) => (isZh ? zh : en);
+  const allMonthNames = monthLabels(locale, 12);
+  const flowSection = (id: string, title: string, formula: string, pick: (c: (typeof cashflow)[number]) => number): BreakdownSection =>
+    cashflow.length > 0
+      ? monthlyFlowSection({ id, title, formula, values: cashflow.map((c) => ({ month: c.month, value: pick(c) })), monthNames: allMonthNames, isZh, notes: [t("现金流量为按月录入/导入的数值，系统不另行推算。", "Cash-flow figures are the monthly values entered / imported; the system does not re-derive them.")] })
+      : { id, title, result: null, formula: t("暂无现金流数据", "No cash-flow data"), cols: [], rows: [] };
+  const notRecorded = t("系统中尚未记录银行授信额度，因此该指标显示为 0，并非实际测得的数值。", "No bank credit lines are recorded in the system, so this shows 0 — it is not a measured figure.");
+  const breakdownSections: BreakdownSection[] = [
+    {
+      id: "cash",
+      title: dict.m.cashBalance,
+      result: totalBank,
+      formula: t(`所有银行账户余额按汇率折合 ${baseCurrency} 后相加`, `Add up every bank account, each converted to ${baseCurrency}`),
+      cols: [t(`折合 ${baseCurrency}`, `In ${baseCurrency}`)],
+      rows: [
+        ...bankRows.map((b) => ({
+          label: `${locale === "en" ? b.bankEn : b.bankZh} · ${b.subsidiary ? localizedName(b.subsidiary, locale) : t("集团总部", "Group HQ")}`,
+          hint: b.currency !== baseCurrency ? `${fmtM(b.original)} ${b.currency}${b.hasRate ? "" : t("（无汇率，按原值）", " (no rate on file, face value)")}` : undefined,
+          values: [b.converted],
+        })),
+        { label: t("现金余额合计", "Cash balance"), values: [totalBank], kind: "total" as const },
+      ],
+    },
+    flowSection("ocf", dict.m.ocf, t("所选年度各月经营活动现金流之和", "Sum of the monthly operating cash flow for the year"), (c) => Number(c.ocf)),
+    flowSection("icf", dict.m.icfNet, t("所选年度各月投资活动现金流净额之和", "Sum of the monthly net investing cash flow for the year"), (c) => Number(c.icf)),
+    flowSection("fcf", dict.m.fcfNet, t("所选年度各月筹资活动现金流净额之和", "Sum of the monthly net financing cash flow for the year"), (c) => Number(c.fcf)),
+    { id: "credit", title: dict.m.creditTotal, result: creditTotal, formula: t("各银行授信额度（上限）之和", "Sum of the credit limits across banks"), cols: [], rows: [], notes: [notRecorded] },
+    { id: "creditUse", title: dict.m.creditUse, result: creditUsePct, resultFormat: "pct", formula: t("已使用授信额度 ÷ 授信总额", "Credit used ÷ total credit limit"), cols: [], rows: [], notes: [notRecorded] },
+  ];
+
   return (
     <>
       <Topbar dict={dict} locale={locale} title={dict.nav.fund} desc={dict.nav.fund} user={user} />
@@ -76,6 +109,16 @@ export default async function FundPage() {
           <KpiTile icon={Landmark} color="var(--cat-4)" label={dict.m.fcfNet} value={fmtM(totalFcf)} unit={dict.common.yi} />
           <KpiTile icon={CreditCard} color="var(--cat-5)" label={dict.m.creditTotal} value={fmtM(creditTotal)} unit={dict.common.yi} />
           <KpiTile icon={AlertTriangle} color="var(--status-warning)" label={dict.m.creditUse} value={fmt1(creditUsePct)} unit="%" note={`${fmtM(creditUsed)} ${dict.common.yi}`} />
+        </div>
+
+        <div data-pdf-hide>
+          <KpiBreakdown
+            sections={breakdownSections}
+            locale={locale}
+            unit={dict.common.yi}
+            heading={t("指标明细与计算过程", "KPI breakdown & calculation")}
+            hint={t("点击展开，查看每个指标的计算公式、逐项明细与核对结果，便于复核。", "Click a KPI to see its formula, line items and tie-out so every figure can be re-checked.")}
+          />
         </div>
 
         <div className="grid gap-4 lg:grid-cols-2">
