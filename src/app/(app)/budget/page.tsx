@@ -53,7 +53,7 @@ export default async function BudgetPage() {
   const hasBudget = budgeted.length > 0;
   const avgCostRate = hasBudget ? budgeted.reduce((a, r) => a + r.costRate, 0) / budgeted.length : 0;
   const avgExpRate = hasBudget ? budgeted.reduce((a, r) => a + r.expRate, 0) / budgeted.length : 0;
-  const noBudgetNote = isZh ? "未设置年度预算 — 在 Xero 建立预算后将自动同步" : "No annual budget set — it syncs automatically once one is created in Xero";
+  const noBudgetNote = isZh ? "未设置年度预算 — 请在「设置 → 财务数据」录入或导入年度预算" : "No annual budget set — add one under Settings → Financial Data, or import it";
   const forecast = orgMonthCount > 0 ? (totalActual / orgMonthCount) * 12 : 0;
 
   return (

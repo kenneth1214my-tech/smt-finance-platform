@@ -915,7 +915,10 @@ export function scaleMoney(n: number, _locale: Locale): number {
 /** Formats a raw monetary figure for display — decimal places follow the locale's unit convention. */
 export function fmtMoney(n: number, locale: Locale): string {
   const decimals = WAN_SCALED_LOCALES.has(locale) ? 1 : 2;
-  return n.toLocaleString("en-US", { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
+  // A value that rounds to zero must print as 0, never as "-0.0" / "-0.00".
+  const half = 0.5 * 10 ** -decimals;
+  const v = Math.abs(n) < half ? 0 : n;
+  return v.toLocaleString("en-US", { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
 }
 
 export function withBaseCurrency(dict: Dictionary, locale: Locale, baseCurrency: string): Dictionary {

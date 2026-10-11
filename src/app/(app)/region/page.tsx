@@ -70,6 +70,11 @@ export default async function RegionPage() {
           <KpiTile icon={PieChart} color="var(--cat-4)" label={dict.m.regionConcentration} value={fmt1(concentration)} unit="%" />
         </div>
 
+        {regions.length === 0 && (
+          <p className="rounded-lg px-3 py-2 text-[12.5px]" style={{ background: "var(--surface-2)", color: "var(--ink-600)" }}>
+            {isZh ? "尚未定义任何区域 — 请在「设置 → 主数据」添加区域；单一区域时，区域数据会自动由各主体月度利润表汇总。" : "No regions are defined yet — add one under Settings → Master Data. With a single region its figures are summed automatically from the entities' monthly P&L."}
+          </p>
+        )}
         <Card title={dict.m.regionMapCard} unit={dict.common.yi}>
           <RankList
             items={sorted.map((r) => ({ id: r.region.id, label: localizedName(r.region, locale), value: r.revenue, color: r.color }))}
