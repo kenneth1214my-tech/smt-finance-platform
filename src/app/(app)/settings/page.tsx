@@ -103,6 +103,7 @@ export default async function SettingsPage() {
           hqInvestmentInSubsidiaries={systemSetting ? Number(systemSetting.investmentInSubsidiaries) : 0}
           hqDueToSubsidiaries={systemSetting ? Number(systemSetting.dueToSubsidiaries) : 0}
           hqHeadcount={systemSetting?.headcount ?? 0}
+          hqShare={{ shares: systemSetting?.sharesOutstanding?.toString() ?? "", price: systemSetting?.sharePrice?.toString() ?? "", dps: systemSetting?.dividendPerShare?.toString() ?? "" }}
           xeroConnected={Boolean(xeroConnection?.connectedAt)}
           xeroTenantName={xeroConnection?.tenantName ?? null}
           xeroConfigured={isXeroConfigured()}

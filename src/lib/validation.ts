@@ -143,6 +143,8 @@ export const monthlyFinancialSchema = z.object({
   adminExp: z.coerce.number().default(0),
   rndExp: z.coerce.number().default(0),
   financeExp: z.coerce.number().default(0),
+  // Optional: an import that doesn't carry it must not overwrite a stored value with 0.
+  employmentCost: z.coerce.number().optional(),
   headcount: z.coerce.number().int().min(0).default(0),
 });
 
@@ -269,6 +271,14 @@ export const hqBalanceSheetSchema = z.object({
 
 export const hqHeadcountSchema = z.object({
   headcount: z.coerce.number().int().min(0),
+});
+
+// Share data of the reporting company (for EPS, P/E and dividend yield). Blank means "not entered" → null.
+const blankToNull = (v: unknown) => (v === "" || v === null || v === undefined ? null : v);
+export const hqShareDataSchema = z.object({
+  sharesOutstanding: z.preprocess(blankToNull, z.coerce.number().int().min(1).nullable()),
+  sharePrice: z.preprocess(blankToNull, z.coerce.number().min(0).nullable()),
+  dividendPerShare: z.preprocess(blankToNull, z.coerce.number().min(0).nullable()),
 });
 
 export const exchangeRateSchema = z.object({
