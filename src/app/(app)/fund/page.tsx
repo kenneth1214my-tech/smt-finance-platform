@@ -12,19 +12,27 @@ import Ring from "@/components/ui/Ring";
 import TrendChart from "@/components/ui/TrendChart";
 import BarChart from "@/components/ui/BarChart";
 import KpiBreakdown from "@/components/ui/KpiBreakdown";
+import PeriodSelector from "@/components/PeriodSelector";
+import { parsePeriod, isHistoricalPeriod } from "@/lib/period";
+import { getReportYears } from "@/lib/period-server";
 import { monthlyFlowSection, type BreakdownSection } from "@/lib/treasury-breakdown";
 
 const fmt1 = (n: number) => n.toLocaleString("en-US", { minimumFractionDigits: 1, maximumFractionDigits: 1 });
 const BANK_TYPE_KEY: Record<string, keyof ReturnType<typeof getDictionary>["m"]> = { main: "bankTypeMain", general: "bankTypeGeneral", fx: "bankTypeFx" };
 
-export default async function FundPage() {
+export default async function FundPage(props: PageProps<"/fund">) {
   const user = await requireUser();
   const locale = await getServerLocale();
   const isZh = locale === "zh" || locale === "zh-Hant";
   const fmtM = (n: number) => fmtMoney(n, locale);
+  const period = parsePeriod(await props.searchParams);
+  const reportYears = await getReportYears(period.year);
+  // Bank balances are only stored as of the latest data (no month-end history on this platform), so for a
+  // past period the cash flows follow the selection but the balance and the trend are labelled as latest.
+  const historical = isHistoricalPeriod(period);
 
   const banks = await db.bankAccount.findMany({ include: { subsidiary: true }, orderBy: { balance: "desc" } });
-  const cashflow = await db.cashFlowMonthly.findMany({ where: { year: new Date().getFullYear() }, orderBy: { month: "asc" } });
+  const cashflow = await db.cashFlowMonthly.findMany({ where: { year: period.year, month: { gte: period.fromMonth, lte: period.toMonth } }, orderBy: { month: "asc" } });
   const baseCurrency = await getBaseCurrency();
   const dict = withBaseCurrency(getDictionary(locale), locale, baseCurrency);
   const rates = await getExchangeRates();
@@ -45,7 +53,8 @@ export default async function FundPage() {
   const totalIcf = cashflow.reduce((a, c) => a + Number(c.icf), 0);
   const totalFcf = cashflow.reduce((a, c) => a + Number(c.fcf), 0);
 
-  const months = monthLabels(locale, cashflow.length);
+  const allMonthLabels = monthLabels(locale, 12);
+  const months = cashflow.map((c) => allMonthLabels[c.month - 1]);
   const netFlows = cashflow.map((c) => Number(c.ocf) + Number(c.icf) + Number(c.fcf));
   const openingBalance = totalBank - netFlows.reduce((a, b) => a + b, 0);
   const balanceByMonth = netFlows.reduce<number[]>((acc, n) => {
@@ -95,6 +104,9 @@ export default async function FundPage() {
     <>
       <Topbar dict={dict} locale={locale} title={dict.nav.fund} desc={dict.nav.fund} user={user} />
       <div className="mx-auto w-full max-w-[1480px] flex-1 space-y-4 px-[26px] py-5">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <PeriodSelector year={period.year} fromMonth={period.fromMonth} toMonth={period.toMonth} years={reportYears} isZh={isZh} />
+        </div>
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-6">
           <KpiTile
             icon={Wallet}
@@ -102,7 +114,7 @@ export default async function FundPage() {
             label={dict.m.cashBalance}
             value={fmtM(totalBank)}
             unit={dict.common.yi}
-            note={isZh ? `折合 ${baseCurrency}` : `in ${baseCurrency}`}
+            note={`${isZh ? `折合 ${baseCurrency}` : `in ${baseCurrency}`}${historical ? (isZh ? " · 最新余额（无月末历史）" : " · latest balances (no month-end history)") : ""}`}
           />
           <KpiTile icon={TrendingUp} color="var(--cat-3)" label={dict.m.ocf} value={fmtM(totalOcf)} unit={dict.common.yi} />
           <KpiTile icon={TrendingDown} color="var(--cat-2)" label={dict.m.icfNet} value={fmtM(totalIcf)} unit={dict.common.yi} />
@@ -123,7 +135,13 @@ export default async function FundPage() {
 
         <div className="grid gap-4 lg:grid-cols-2">
           <Card title={dict.m.cashTrendCard} unit={dict.common.yi}>
-            <TrendChart labels={months} series={[{ name: dict.m.cashBalance, color: "var(--cat-1)", data: balanceByMonth.map((v) => scaleMoney(v, locale)) }]} />
+            {historical ? (
+              <p className="py-6 text-[12.5px] leading-relaxed" style={{ color: "var(--ink-400)" }}>
+                {isZh ? "现金余额趋势按最新余额倒推，仅适用于截至最新月份的期间；所选期间的现金流请见下方。" : "The cash trend is worked back from the latest balance, so it is only shown for periods ending at the latest month — see the cash flows below for the selected period."}
+              </p>
+            ) : (
+              <TrendChart labels={months} series={[{ name: dict.m.cashBalance, color: "var(--cat-1)", data: balanceByMonth.map((v) => scaleMoney(v, locale)) }]} />
+            )}
           </Card>
           <Card title={dict.m.creditGaugeCard}>
             <div className="flex flex-wrap items-center gap-6">
