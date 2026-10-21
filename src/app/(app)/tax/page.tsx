@@ -8,6 +8,11 @@ import { computeCorporateTax, effectiveFilingStatus, currentGstQuarter } from "@
 import Topbar from "@/components/Topbar";
 import KpiTile from "@/components/ui/KpiTile";
 import TaxCenterClient from "./TaxCenterClient";
+import KpiBreakdown from "@/components/ui/KpiBreakdown";
+import { localizedName } from "@/lib/localize";
+import { buildTaxKpiSections, type TaxProvisionView } from "@/lib/tax-kpi-breakdown";
+
+const FILING_TYPE_LABEL: Record<string, string> = { ECI: "ECI", FORM_C_S: "Form C-S/C", GST_F5: "GST F5" };
 
 // Prisma Decimal / Date instances aren't plain-serializable across the server->client
 // boundary; round-trip through JSON so every field becomes a plain string/number.
@@ -70,6 +75,38 @@ export default async function TaxPage() {
   const overdueFilings = filings.filter((f) => effectiveFilingStatus(f.status, f.dueDate, now) === "OVERDUE").length;
   const netDeferredTax = deferredItems.reduce((sum, d) => sum + Number(d.deferredTaxAmount), 0);
 
+  // ---- Workings behind the four KPI tiles (see KpiBreakdown) ----
+  const isZh = locale === "zh" || locale === "zh-Hant";
+  const entityName = (s: Parameters<typeof localizedName>[0] | null) => (s ? localizedName(s, locale) : dict.m.taxGroupHQ);
+  const kpiProvisions: TaxProvisionView[] = provisions
+    .filter((p) => p.year === currentYear)
+    .map((p) => {
+      const rate = Number(p.taxRatePct);
+      const c = computeCorporateTax(Number(p.chargeableIncome), rate, Number(p.rebatePct), Number(p.rebateCap));
+      return {
+        name: entityName(p.subsidiary),
+        taxRatePct: rate,
+        chargeableIncome: Number(p.chargeableIncome),
+        exemptAmount: c.exemptAmount,
+        taxableAfterExemption: c.taxableAfterExemption,
+        grossTax: c.grossTax,
+        rebateAmount: c.rebateAmount,
+        netTaxPayable: c.netTaxPayable,
+        effectiveRatePct: c.effectiveRatePct,
+      };
+    });
+  const filingView = (f: (typeof filings)[number]) => ({ name: entityName(f.subsidiary), typeLabel: FILING_TYPE_LABEL[f.type] ?? f.type, periodLabel: f.periodLabel, dueDate: f.dueDate });
+  const kpiSections = buildTaxKpiSections({
+    jurisdiction: "SG",
+    isZh,
+    year: currentYear,
+    provisions: kpiProvisions,
+    upcoming: filings.filter((f) => effectiveFilingStatus(f.status, f.dueDate, now) === "UPCOMING").map(filingView),
+    overdue: filings.filter((f) => effectiveFilingStatus(f.status, f.dueDate, now) === "OVERDUE").map(filingView),
+    deferred: deferredItems.map((d) => ({ name: entityName(d.subsidiary), year: d.year, description: d.description, temporaryDifference: Number(d.temporaryDifference), deferredTax: Number(d.deferredTaxAmount) })),
+    now,
+  });
+
   return (
     <>
       <Topbar dict={dict} locale={locale} title={dict.nav.tax} desc={dict.m.taxPageDesc} user={user} />
@@ -80,6 +117,14 @@ export default async function TaxPage() {
           <KpiTile icon={AlertTriangle} color="var(--status-critical)" label={dict.m.taxKpiOverdueFilings} value={String(overdueFilings)} />
           <KpiTile icon={Scale} color="var(--cat-2)" label={dict.m.taxKpiDeferredTax} value={fmtM(netDeferredTax)} unit={dict.common.yi} />
         </div>
+
+        <KpiBreakdown
+          sections={kpiSections}
+          locale={locale}
+          unit={baseCurrency}
+          heading={isZh ? "指标明细与计算过程" : "KPI breakdown & calculation"}
+          hint={isZh ? "点击展开，查看每个税务指标的计算公式、逐项明细与说明，便于复核。" : "Click a KPI to see its formula, line items and an explanation so every figure can be re-checked."}
+        />
 
         <TaxCenterClient
           locale={locale}
