@@ -107,6 +107,13 @@ export default async function TaxPage() {
     now,
   });
 
+  // ACRA XBRL tab — the latest financial year that has already ended is the one being filed.
+  const setting = await db.systemSetting.upsert({ where: { id: "default" }, update: {}, create: { id: "default" } });
+  const fye = setting.fyeMonth;
+  const curFyYear = now.getMonth() + 1 > fye ? now.getFullYear() + 1 : now.getFullYear();
+  const defaultYear = new Date(Date.UTC(curFyYear, fye, 0)).getTime() < now.getTime() ? curFyYear : curFyYear - 1;
+  const acra = { years: [curFyYear, curFyYear - 1, curFyYear - 2, curFyYear - 3, curFyYear - 4], defaultYear, registrationNo: setting.registrationNo };
+
   return (
     <>
       <Topbar dict={dict} locale={locale} title={dict.nav.tax} desc={dict.m.taxPageDesc} user={user} />
@@ -135,6 +142,7 @@ export default async function TaxPage() {
           filings={toPlain(filings)}
           deferredItems={toPlain(deferredItems)}
           netProfitByEntity={netProfitByEntity}
+          acra={acra}
         />
       </div>
     </>

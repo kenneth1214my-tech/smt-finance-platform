@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import AcraXbrlPanel from "./AcraXbrlPanel";
 import { useRouter } from "next/navigation";
 import { Sparkles } from "lucide-react";
 import type { Subsidiary, CorporateTaxProvision, TaxFiling, DeferredTaxItem } from "@prisma/client";
@@ -44,6 +45,7 @@ export default function TaxCenterClient({
   filings,
   deferredItems,
   netProfitByEntity,
+  acra,
 }: {
   locale: Locale;
   unit: string;
@@ -53,9 +55,11 @@ export default function TaxCenterClient({
   filings: FilingRow[];
   deferredItems: DeferredRow[];
   netProfitByEntity: Record<string, Record<number, number>>;
+  /** ACRA XBRL tab settings (financial years offered, default year, stored UEN). */
+  acra?: { years: number[]; defaultYear: number; registrationNo: string | null };
 }) {
   const isZh = locale === "zh" || locale === "zh-Hant";
-  const [tab, setTab] = useState<"provision" | "filing" | "deferred">("provision");
+  const [tab, setTab] = useState<"provision" | "filing" | "deferred" | "xbrl">("provision");
   const fmtM = (n: number) => fmtMoney(n, locale);
   const router = useRouter();
   const [genYear, setGenYear] = useState(String(new Date().getFullYear()));
@@ -162,6 +166,7 @@ export default function TaxCenterClient({
     { id: "provision", label: dict.m.taxProvisionCard },
     { id: "filing", label: dict.m.taxFilingCard },
     { id: "deferred", label: dict.m.taxDeferredCard },
+    ...(acra ? [{ id: "xbrl" as const, label: isZh ? "XBRL（ACRA 申报）" : "XBRL (ACRA filing)" }] : []),
   ];
 
   const currentYear = new Date().getFullYear();
@@ -309,6 +314,7 @@ export default function TaxCenterClient({
             addLabel={isZh ? "新增申报记录" : "Add filing"}
           />
         )}
+        {tab === "xbrl" && acra && <AcraXbrlPanel locale={locale} years={acra.years} defaultYear={acra.defaultYear} registrationNo={acra.registrationNo} />}
         {tab === "deferred" && (
           <CrudTable
             apiBase="/api/admin/deferred-tax-items"

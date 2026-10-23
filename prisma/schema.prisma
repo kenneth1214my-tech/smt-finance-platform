@@ -376,6 +376,8 @@ model SystemSetting {
   // Month the group's financial year ends in (1-12; 12 = calendar year). Drives which month
   // subsidiary-level year-end figures are read from for consolidated/audit reporting.
   fyeMonth     Int      @default(12)
+  // Company UEN (9 digits + 1 letter) — ACRA XBRL filings are keyed on it.
+  registrationNo String?
   // Group/HQ-level balance sheet figures — mirrors Subsidiary.equity/debtRatio, but for the
   // holding entity itself rather than any subsidiary. Set via the Balance Sheet import tools or
   // directly under Group Settings.
