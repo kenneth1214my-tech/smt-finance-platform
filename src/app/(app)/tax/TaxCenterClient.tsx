@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import AcraXbrlPanel from "./AcraXbrlPanel";
+import AcraXbrlPanel, { type AcraEntityOption } from "./AcraXbrlPanel";
 import { useRouter } from "next/navigation";
 import { Sparkles } from "lucide-react";
 import type { Subsidiary, CorporateTaxProvision, TaxFiling, DeferredTaxItem } from "@prisma/client";
@@ -56,7 +56,7 @@ export default function TaxCenterClient({
   deferredItems: DeferredRow[];
   netProfitByEntity: Record<string, Record<number, number>>;
   /** ACRA XBRL tab settings (financial years offered, default year, stored UEN). */
-  acra?: { years: number[]; defaultYear: number; registrationNo: string | null };
+  acra?: { years: number[]; defaultYear: number; entities: AcraEntityOption[] };
 }) {
   const isZh = locale === "zh" || locale === "zh-Hant";
   const [tab, setTab] = useState<"provision" | "filing" | "deferred" | "xbrl">("provision");
@@ -314,7 +314,7 @@ export default function TaxCenterClient({
             addLabel={isZh ? "新增申报记录" : "Add filing"}
           />
         )}
-        {tab === "xbrl" && acra && <AcraXbrlPanel locale={locale} years={acra.years} defaultYear={acra.defaultYear} registrationNo={acra.registrationNo} />}
+        {tab === "xbrl" && acra && <AcraXbrlPanel locale={locale} years={acra.years} defaultYear={acra.defaultYear} entities={acra.entities} />}
         {tab === "deferred" && (
           <CrudTable
             apiBase="/api/admin/deferred-tax-items"

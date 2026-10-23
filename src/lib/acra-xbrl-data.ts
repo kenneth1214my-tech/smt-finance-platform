@@ -12,10 +12,14 @@ function fyWhere(year: number, fye: number) {
   return { OR: [{ year: year - 1, month: { gte: fye + 1 } }, { year, month: { lte: fye } }] };
 }
 
-async function periodOf(year: number, fye: number, scope: AcraScope): Promise<PeriodInput> {
-  const subFilter = scope === "company" ? { subsidiaryId: null } : {};
+/** The company itself ("hq"), the sum of everything ("group"), or one subsidiary (its id). */
+export type AcraEntity = "hq" | "group" | (string & {});
+
+async function periodOf(year: number, fye: number, entity: AcraEntity): Promise<PeriodInput> {
+  const subFilter = entity === "group" ? {} : entity === "hq" ? { subsidiaryId: null } : { subsidiaryId: entity };
   const [monthly, cash] = await Promise.all([
     db.monthlyFinancial.findMany({ where: { ...fyWhere(year, fye), ...subFilter } }),
+    // Cash flow is only recorded for the group as a whole in this app
     db.cashFlowMonthly.findMany({ where: fyWhere(year, fye) }),
   ]);
   const pnl: PnlInput | null =
@@ -31,7 +35,7 @@ async function periodOf(year: number, fye: number, scope: AcraScope): Promise<Pe
           employmentCost: sum(monthly, (r) => r.employmentCost),
           netProfit: sum(monthly, (r) => r.netProfit),
         };
-  const cf: CashFlowInput | null = cash.length === 0 ? null : { ocf: sum(cash, (r) => r.ocf), icf: sum(cash, (r) => r.icf), fcf: sum(cash, (r) => r.fcf) };
+  const cf: CashFlowInput | null = entity !== "group" || cash.length === 0 ? null : { ocf: sum(cash, (r) => r.ocf), icf: sum(cash, (r) => r.icf), fcf: sum(cash, (r) => r.fcf) };
   return { pnl, bs: null, cf };
 }
 
@@ -42,12 +46,19 @@ function derive(equity: number, debtRatio: number) {
   return { assets, liabilities: assets - equity, equity };
 }
 
-export async function loadAcraPack(opts: { year: number; scope: AcraScope; template?: AcraTemplate; isZh: boolean }): Promise<AcraPack> {
+export async function loadAcraPack(opts: { year: number; entity: AcraEntity; template?: AcraTemplate; isZh: boolean }): Promise<AcraPack> {
   const setting = await db.systemSetting.upsert({ where: { id: "default" }, update: {}, create: { id: "default" } });
-  const fye = setting.fyeMonth;
-  const [current, prior, subs] = await Promise.all([periodOf(opts.year, fye, opts.scope), periodOf(opts.year - 1, fye, opts.scope), db.subsidiary.findMany()]);
+  const subs = await db.subsidiary.findMany();
+  const sub = opts.entity === "hq" || opts.entity === "group" ? null : subs.find((s) => s.id === opts.entity) ?? null;
+  if (opts.entity !== "hq" && opts.entity !== "group" && !sub) throw new Error("unknown_entity");
+  // Each legal entity files with its own name, UEN and year-end.
+  const fye = sub ? sub.fyeMonth : setting.fyeMonth;
+  const scope: AcraScope = opts.entity === "group" ? "group" : "company";
+  const [current, prior] = await Promise.all([periodOf(opts.year, fye, opts.entity), periodOf(opts.year - 1, fye, opts.entity)]);
 
-  const entities = [{ equity: n(setting.equity), debt: n(setting.debtRatio) }, ...(opts.scope === "group" ? subs.map((s) => ({ equity: n(s.equity), debt: n(s.debtRatio) })) : [])];
+  const entities = sub
+    ? [{ equity: n(sub.equity), debt: n(sub.debtRatio) }]
+    : [{ equity: n(setting.equity), debt: n(setting.debtRatio) }, ...(scope === "group" ? subs.map((s) => ({ equity: n(s.equity), debt: n(s.debtRatio) })) : [])];
   const totals = entities.map((e) => derive(e.equity, e.debt));
   const snapshot: BalanceInput = {
     totalAssets: totals.reduce((a, t) => a + t.assets, 0),
@@ -74,9 +85,9 @@ export async function loadAcraPack(opts: { year: number; scope: AcraScope; templ
   const isLatest = opts.year >= (latestYear._max.year ?? opts.year);
   const currentWithBs: PeriodInput = { ...current, bs: hasSnapshot && isLatest ? snapshot : null };
   const pack = buildAcraPack({
-    entityName: setting.companyName,
-    uen: setting.registrationNo,
-    scope: opts.scope,
+    entityName: sub ? sub.nameEn : setting.companyName,
+    uen: sub ? sub.registrationNo : setting.registrationNo,
+    scope,
     year: opts.year,
     fyeMonth: fye,
     template: opts.template,

@@ -112,7 +112,16 @@ export default async function TaxPage() {
   const fye = setting.fyeMonth;
   const curFyYear = now.getMonth() + 1 > fye ? now.getFullYear() + 1 : now.getFullYear();
   const defaultYear = new Date(Date.UTC(curFyYear, fye, 0)).getTime() < now.getTime() ? curFyYear : curFyYear - 1;
-  const acra = { years: [curFyYear, curFyYear - 1, curFyYear - 2, curFyYear - 3, curFyYear - 4], defaultYear, registrationNo: setting.registrationNo };
+  // Each legal entity files its own statements: the company itself, every subsidiary, plus the (unfileable) group total.
+  const acra = {
+    years: [curFyYear, curFyYear - 1, curFyYear - 2, curFyYear - 3, curFyYear - 4],
+    defaultYear,
+    entities: [
+      { id: "hq", name: setting.companyName, uen: setting.registrationNo },
+      ...subsidiaries.map((s) => ({ id: s.id, name: s.nameEn, uen: s.registrationNo })),
+      { id: "group", name: setting.companyName, uen: setting.registrationNo },
+    ],
+  };
 
   return (
     <>
