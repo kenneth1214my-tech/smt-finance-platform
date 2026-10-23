@@ -73,7 +73,7 @@ export async function loadAcraPack(opts: { year: number; scope: AcraScope; templ
   const latestYear = await db.monthlyFinancial.aggregate({ _max: { year: true } });
   const isLatest = opts.year >= (latestYear._max.year ?? opts.year);
   const currentWithBs: PeriodInput = { ...current, bs: hasSnapshot && isLatest ? snapshot : null };
-  return buildAcraPack({
+  const pack = buildAcraPack({
     entityName: setting.companyName,
     uen: setting.registrationNo,
     scope: opts.scope,
@@ -86,4 +86,10 @@ export async function loadAcraPack(opts: { year: number; scope: AcraScope; templ
     prior,
     extraChecks: extra,
   });
+  // This app has no sync: say where its figures actually come from.
+  for (const c of pack.checks) {
+    if (c.id === "bs-present") c.detail = t("没有可用的资产负债表数据——请在「设置 → 集团设置 / 子公司」填写权益和负债率；本系统不保存年末存档。", "No balance-sheet figures are on file — enter equity and debt ratio under Settings (group / subsidiaries); this app does not archive year-ends.");
+    if (c.id === "pl-employee") c.detail = t("为 0：要么没有人工成本，要么利润表导入时没有人工成本科目——请重新导入利润表后再看。", "It is 0: either there is none or the imported profit and loss had no employment-cost accounts — re-import the profit and loss and look again.");
+  }
+  return pack;
 }
