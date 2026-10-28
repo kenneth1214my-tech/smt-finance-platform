@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import AcraXbrlPanel, { type AcraEntityOption } from "./AcraXbrlPanel";
+import { computeFilingDueDate } from "@/lib/filing-due";
 import { useRouter } from "next/navigation";
 import { Sparkles } from "lucide-react";
 import type { Subsidiary, CorporateTaxProvision, TaxFiling, DeferredTaxItem } from "@prisma/client";
@@ -46,6 +47,7 @@ export default function TaxCenterClient({
   deferredItems,
   netProfitByEntity,
   acra,
+  groupFyeMonth = 12,
 }: {
   locale: Locale;
   unit: string;
@@ -57,6 +59,8 @@ export default function TaxCenterClient({
   netProfitByEntity: Record<string, Record<number, number>>;
   /** ACRA XBRL tab settings (financial years offered, default year, stored UEN). */
   acra?: { years: number[]; defaultYear: number; entities: AcraEntityOption[] };
+  /** Month the group's financial year ends in (the default for entities without their own). */
+  groupFyeMonth?: number;
 }) {
   const isZh = locale === "zh" || locale === "zh-Hant";
   const [tab, setTab] = useState<"provision" | "filing" | "deferred" | "xbrl">("provision");
@@ -127,7 +131,18 @@ export default function TaxCenterClient({
     { key: "subsidiaryId", label: dict.m.taxEntity, type: "select", options: subsidiaryOrHqOptions, displayValue: subsidiaryOrHqLabel },
     { key: "type", label: isZh ? "类型" : "Type", type: "select", options: TYPE_OPTIONS },
     { key: "periodLabel", label: isZh ? "期间" : "Period", type: "text" },
-    { key: "dueDate", label: isZh ? "到期日" : "Due Date", type: "date" },
+    {
+      key: "dueDate",
+      label: isZh ? "到期日（按税务局规定自动计算）" : "Due Date (automatic — IRAS rule)",
+      type: "date",
+      // Worked out from the type, period and the entity's year-end; the server applies the same rule, so it cannot be overridden by hand.
+      auto: (form) => {
+        const fyeMonth = form.subsidiaryId ? subsidiaries.find((s) => s.id === form.subsidiaryId)?.fyeMonth ?? groupFyeMonth : groupFyeMonth;
+        const r = computeFilingDueDate({ jurisdiction: "SG", type: form.type ?? "", periodLabel: form.periodLabel ?? "", fyeMonth });
+        return r ? { value: r.date, hint: isZh ? r.ruleZh : r.ruleEn } : null;
+      },
+      autoPending: isZh ? "选择类型并填写期间（GST F5：2026 Q3；ECI / Form C-S：FY2026 或 YA2027）后自动计算" : "Pick the type and fill the period (GST F5: 2026 Q3; ECI / Form C-S: FY2026 or YA2027) to calculate",
+    },
     { key: "filedAt", label: isZh ? "申报日期" : "Filed At", type: "date" },
     { key: "outputTax", label: `${isZh ? "销项税额" : "Output Tax"} (${unit})`, type: "number", step: "0.01" },
     { key: "inputTax", label: `${isZh ? "进项税额" : "Input Tax"} (${unit})`, type: "number", step: "0.01" },

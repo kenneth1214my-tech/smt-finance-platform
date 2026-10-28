@@ -152,6 +152,7 @@ export default async function TaxPage() {
           deferredItems={toPlain(deferredItems)}
           netProfitByEntity={netProfitByEntity}
           acra={acra}
+          groupFyeMonth={fye}
         />
       </div>
     </>
