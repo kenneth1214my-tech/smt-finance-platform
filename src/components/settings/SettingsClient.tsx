@@ -1867,6 +1867,7 @@ function PnlImport({
             sellExp: String(categorized?.sellExp ?? 0),
             employmentCost: String(employmentCostOf(parsed?.expenseLineItems ?? [])),
             depreciation: String(parsed?.depreciation ?? 0),
+            interestExp: String(parsed?.interestExpense ?? 0),
             adminExp: String(categorized?.adminExp ?? 0),
             rndExp: String(categorized?.rndExp ?? 0),
             financeExp: String(categorized?.financeExp ?? 0),
