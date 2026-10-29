@@ -19,7 +19,7 @@ import { parseAgingSummary } from "@/lib/aging-summary-parser";
 import type { Locale, DICTIONARIES } from "@/lib/i18n/dictionaries";
 import { LOCALES, LOCALE_LABELS } from "@/lib/i18n/dictionaries";
 import KpiTile from "@/components/ui/KpiTile";
-import { employmentCostOf, depreciationOf } from "@/lib/employment-cost";
+import { employmentCostOf } from "@/lib/employment-cost";
 import Card from "@/components/ui/Card";
 import StatusPill from "@/components/ui/StatusPill";
 import CrudTable, { type FieldConfig } from "@/components/admin/CrudTable";
@@ -1866,7 +1866,7 @@ function PnlImport({
             opCost,
             sellExp: String(categorized?.sellExp ?? 0),
             employmentCost: String(employmentCostOf(parsed?.expenseLineItems ?? [])),
-            depreciation: String(depreciationOf(parsed?.expenseLineItems ?? [])),
+            depreciation: String(parsed?.depreciation ?? 0),
             adminExp: String(categorized?.adminExp ?? 0),
             rndExp: String(categorized?.rndExp ?? 0),
             financeExp: String(categorized?.financeExp ?? 0),
