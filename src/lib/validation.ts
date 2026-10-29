@@ -247,7 +247,7 @@ export const reportDocSchema = z.object({
   type: z.enum(["MANAGEMENT", "SPECIAL", "STATUTORY"]),
   status: z.enum(["GENERATED", "GENERATING", "ARCHIVED"]),
   period: z.string().trim().min(1).max(20),
-  generatedAt: z.coerce.date().nullable().optional(),
+  generatedAt: z.preprocess((v) => (v === "" ? null : v), z.coerce.date().nullable().optional()),
 });
 
 export const currencySettingSchema = z.object({
@@ -307,11 +307,11 @@ export const taxFilingSchema = z.object({
   type: z.enum(["ECI", "FORM_C_S", "GST_F5"]),
   periodLabel: z.string().trim().min(1).max(40),
   dueDate: z.coerce.date(),
-  filedAt: z.coerce.date().nullable().optional(),
+  filedAt: z.preprocess((v) => (v === "" ? null : v), z.coerce.date().nullable().optional()),
   outputTax: z.coerce.number().nullable().optional(),
   inputTax: z.coerce.number().nullable().optional(),
   amount: z.coerce.number().nullable().optional(),
-  paidAt: z.coerce.date().nullable().optional(),
+  paidAt: z.preprocess((v) => (v === "" ? null : v), z.coerce.date().nullable().optional()),
   status: z.enum(["UPCOMING", "FILED", "OVERDUE", "PAID"]).default("UPCOMING"),
   notes: z.string().trim().max(2000).nullable().optional(),
 });
