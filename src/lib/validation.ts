@@ -145,6 +145,7 @@ export const monthlyFinancialSchema = z.object({
   financeExp: z.coerce.number().default(0),
   // Optional: an import that doesn't carry it must not overwrite a stored value with 0.
   employmentCost: z.coerce.number().optional(),
+  depreciation: z.coerce.number().optional(),
   headcount: z.coerce.number().int().min(0).default(0),
 });
 
