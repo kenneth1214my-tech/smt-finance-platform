@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import { getCompanyName } from "@/lib/company";
 import { localizedName } from "@/lib/localize";
 import type { Locale } from "@/lib/i18n/dictionaries";
+import { loadJvPosition } from "@/lib/joint-venture-data";
 
 async function getHqBalanceSheet() {
   const row = await db.systemSetting.upsert({ where: { id: "default" }, update: {}, create: { id: "default" } });
@@ -35,6 +36,13 @@ export interface ConsolidatedIncomeStatement {
   financeExp: number;
   totalExpenses: number;
   operatingProfit: number;
+  /** Share of results of joint ventures under the equity method (below operating profit; 0 when there is none). */
+  shareOfJointVenture: number;
+  hasJointVenture: boolean;
+  /** Charge for the joint venture already inside the entities' own expenses above, reversed on its own line so the statement adds up. */
+  jvAlreadyInExpenses: number;
+  /** Net profit includes this adjustment to the sum of the entities' own results (see lib/joint-venture.ts). */
+  jvProfitAdjustment: number;
   netProfit: number;
   netMarginPct: number;
   byEntity: ConsolidatedEntityRow[];
@@ -45,10 +53,11 @@ export interface ConsolidatedIncomeStatement {
 // year — the same org-wide aggregation Overview/Profit Analysis use (see their HQ_PSEUDO_SUB
 // fix), just packaged as a formal report instead of dashboard KPI tiles.
 export async function computeConsolidatedIncomeStatement(year: number, locale: Locale): Promise<ConsolidatedIncomeStatement> {
-  const [companyName, subsidiaries, monthly] = await Promise.all([
+  const [companyName, subsidiaries, monthly, jv] = await Promise.all([
     getCompanyName(),
     db.subsidiary.findMany({ orderBy: { sortOrder: "asc" } }),
     db.monthlyFinancial.findMany({ where: { year } }),
+    loadJvPosition(year),
   ]);
 
   const revenue = monthly.reduce((a, r) => a + Number(r.revenue), 0);
@@ -61,7 +70,8 @@ export async function computeConsolidatedIncomeStatement(year: number, locale: L
   const financeExp = monthly.reduce((a, r) => a + Number(r.financeExp), 0);
   const totalExpenses = sellExp + adminExp + rndExp + financeExp;
   const operatingProfit = grossProfit - totalExpenses;
-  const netProfit = monthly.reduce((a, r) => a + Number(r.netProfit), 0);
+  // Net profit is the entities' own results plus the equity-method adjustment (see lib/joint-venture.ts).
+  const netProfit = monthly.reduce((a, r) => a + Number(r.netProfit), 0) + jv.profitAdjustment;
   const netMarginPct = revenue > 0 ? (netProfit / revenue) * 100 : 0;
 
   const byEntity: ConsolidatedEntityRow[] = [];
@@ -93,6 +103,10 @@ export async function computeConsolidatedIncomeStatement(year: number, locale: L
     financeExp,
     totalExpenses,
     operatingProfit,
+    shareOfJointVenture: jv.groupResult,
+    hasJointVenture: jv.hasJointVenture,
+    jvProfitAdjustment: jv.profitAdjustment,
+    jvAlreadyInExpenses: jv.alreadyInExpenses,
     netProfit,
     netMarginPct,
     byEntity,
@@ -123,6 +137,11 @@ export interface ConsolidatedBalanceSheet {
   // subsidiaries on file.
   investmentInSubsidiariesEliminated: number;
   intercompanyEliminated: number;
+  /** Investment in joint ventures under the equity method (a non-current asset in the Group statements; nil once losses have used it up). */
+  investmentInJointVenture: number;
+  hasJointVenture: boolean;
+  /** Added to the sum of the entities' own balance sheets to take HQ's ledger amount for the investment to the equity-method amount. */
+  jvBalanceAdjustment: number;
   generatedAt: Date;
 }
 
@@ -138,7 +157,7 @@ function deriveAssetsAndLiabilities(equity: number, debtRatio: number): { totalA
 }
 
 export async function computeConsolidatedBalanceSheet(year: number, locale: Locale): Promise<ConsolidatedBalanceSheet> {
-  const [companyName, subsidiaries, hq] = await Promise.all([getCompanyName(), db.subsidiary.findMany({ orderBy: { sortOrder: "asc" } }), getHqBalanceSheet()]);
+  const [companyName, subsidiaries, hq, jv] = await Promise.all([getCompanyName(), db.subsidiary.findMany({ orderBy: { sortOrder: "asc" } }), getHqBalanceSheet(), loadJvPosition(year)]);
 
   const byEntity: ConsolidatedBalanceSheetEntityRow[] = [];
   for (const s of subsidiaries) {
@@ -169,7 +188,7 @@ export async function computeConsolidatedBalanceSheet(year: number, locale: Loca
 
   const rawTotalAssets = byEntity.reduce((a, r) => a + r.totalAssets, 0);
   const rawTotalLiabilities = byEntity.reduce((a, r) => a + r.totalLiabilities, 0);
-  const totalAssets = rawTotalAssets - investmentInSubsidiariesEliminated - Math.max(0, -dueToSubsidiaries);
+  const totalAssets = rawTotalAssets - investmentInSubsidiariesEliminated - Math.max(0, -dueToSubsidiaries) + jv.balanceAdjustment;
   const totalLiabilities = rawTotalLiabilities - Math.max(0, dueToSubsidiaries);
   const totalEquity = totalAssets - totalLiabilities;
   const debtRatioPct = totalAssets > 0 ? (totalLiabilities / totalAssets) * 100 : 0;
@@ -184,6 +203,9 @@ export async function computeConsolidatedBalanceSheet(year: number, locale: Loca
     byEntity,
     investmentInSubsidiariesEliminated,
     intercompanyEliminated,
+    investmentInJointVenture: jv.investmentCarrying,
+    hasJointVenture: jv.hasJointVenture,
+    jvBalanceAdjustment: jv.balanceAdjustment,
     generatedAt: new Date(),
   };
 }

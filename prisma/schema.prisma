@@ -567,3 +567,40 @@ model DeferredTaxItem {
   createdAt           DateTime    @default(now())
   updatedAt           DateTime    @updatedAt
 }
+
+// A joint venture the group holds an interest in (joint control, NOT a subsidiary — never consolidated line by line). Equity method in the
+// Group statements (lib/joint-venture.ts). Same shape as the main platform's tables, without the tenant column. Amounts are in the base currency.
+model JointVenture {
+  id                    String    @id @default(cuid())
+  name                  String
+  country               String
+  ownershipPct          Decimal   @db.Decimal(5, 2)
+  currency              String
+  acquiredOn            DateTime?
+  investmentAccountName String?
+  notes                 String?   @db.Text
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  periods JointVenturePeriod[]
+}
+
+model JointVenturePeriod {
+  id                String       @id @default(cuid())
+  jointVentureId    String
+  jointVenture      JointVenture @relation(fields: [jointVentureId], references: [id], onDelete: Cascade)
+  year              Int
+  capitalAdded      Decimal      @default(0) @db.Decimal(14, 2)
+  jvNetResult       Decimal      @default(0) @db.Decimal(14, 2)
+  jvNetAssets       Decimal?     @db.Decimal(14, 2)
+  dividendsReceived Decimal      @default(0) @db.Decimal(14, 2)
+  translation       Decimal      @default(0) @db.Decimal(14, 2)
+  impairment        Decimal      @default(0) @db.Decimal(14, 2)
+  hqLedgerCarrying  Decimal?     @db.Decimal(14, 2)
+  hqLedgerExpense   Decimal      @default(0) @db.Decimal(14, 2)
+  notes             String?      @db.Text
+  createdAt         DateTime     @default(now())
+  updatedAt         DateTime     @updatedAt
+
+  @@unique([jointVentureId, year])
+}

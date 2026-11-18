@@ -68,6 +68,8 @@ export default function AuditedStatementsActions({ report, locale, baseCurrency 
       row(isZh ? "研发费用" : "R&D Exp.", -cur.rndExp, -prior.rndExp) +
       row(isZh ? "财务费用" : "Finance Exp.", -cur.financeExp, -prior.financeExp) +
       row(isZh ? "营业利润" : "Operating Profit", cur.operatingProfit, prior.operatingProfit, true) +
+      (cur.hasJointVenture || prior.hasJointVenture ? row(isZh ? "应占合营企业(亏损)/利润" : "Share of (loss)/profit from joint venture", cur.shareOfJointVenture, prior.shareOfJointVenture) : "") +
+      (cur.jvAlreadyInExpenses || prior.jvAlreadyInExpenses ? row(isZh ? "减：已计入总部费用（审计调整分录）" : "Less: already charged in HQ's expenses above", cur.jvAlreadyInExpenses, prior.jvAlreadyInExpenses) : "") +
       row(isZh ? "净利润/(亏损)" : "Net Profit/(Loss)", cur.netProfit, prior.netProfit, true);
     const entityRows = cur.byEntity
       .map((r) => `<tr><td>${escapeHtml(r.name)}</td><td class="num">${escapeHtml(fmtM(r.revenue))}</td><td class="num">${escapeHtml(fmtM(r.netProfit))}</td><td class="num">${r.netMarginPct.toFixed(1)}%</td></tr>`)
@@ -184,9 +186,11 @@ export default function AuditedStatementsActions({ report, locale, baseCurrency 
                 row3(isZh ? "研发费用" : "R&D Exp.", -cur.rndExp, -prior.rndExp),
                 row3(isZh ? "财务费用" : "Finance Exp.", -cur.financeExp, -prior.financeExp),
                 row3(isZh ? "营业利润" : "Operating Profit", cur.operatingProfit, prior.operatingProfit),
+                ...(cur.hasJointVenture || prior.hasJointVenture ? [row3(isZh ? "应占合营企业(亏损)/利润" : "Share of (loss)/profit from joint venture", cur.shareOfJointVenture, prior.shareOfJointVenture)] : []),
+                ...(cur.jvAlreadyInExpenses || prior.jvAlreadyInExpenses ? [row3(isZh ? "减：已计入总部费用（审计调整分录）" : "Less: already charged in HQ's expenses above", cur.jvAlreadyInExpenses, prior.jvAlreadyInExpenses)] : []),
                 row3(isZh ? "净利润/(亏损)" : "Net Profit/(Loss)", cur.netProfit, prior.netProfit),
               ],
-              new Set([2, 7, 8])
+              new Set([2, 7, 8 + (cur.hasJointVenture || prior.hasJointVenture ? 1 : 0) + (cur.jvAlreadyInExpenses || prior.jvAlreadyInExpenses ? 1 : 0)])
             ),
             new Paragraph({ text: "", spacing: { after: 200 } }),
             new Paragraph({ heading: HeadingLevel.HEADING_2, text: isZh ? "按主体拆分" : "Breakdown by Entity" }),
