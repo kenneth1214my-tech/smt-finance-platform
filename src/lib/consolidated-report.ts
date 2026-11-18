@@ -41,6 +41,8 @@ export interface ConsolidatedIncomeStatement {
   hasJointVenture: boolean;
   /** Charge for the joint venture already inside the entities' own expenses above, reversed on its own line so the statement adds up. */
   jvAlreadyInExpenses: number;
+  /** The joint-venture figures could not be loaded, so this statement leaves the joint venture out. */
+  jvLoadFailed: boolean;
   /** Net profit includes this adjustment to the sum of the entities' own results (see lib/joint-venture.ts). */
   jvProfitAdjustment: number;
   netProfit: number;
@@ -107,6 +109,7 @@ export async function computeConsolidatedIncomeStatement(year: number, locale: L
     hasJointVenture: jv.hasJointVenture,
     jvProfitAdjustment: jv.profitAdjustment,
     jvAlreadyInExpenses: jv.alreadyInExpenses,
+    jvLoadFailed: jv.loadFailed,
     netProfit,
     netMarginPct,
     byEntity,
@@ -142,6 +145,7 @@ export interface ConsolidatedBalanceSheet {
   hasJointVenture: boolean;
   /** Added to the sum of the entities' own balance sheets to take HQ's ledger amount for the investment to the equity-method amount. */
   jvBalanceAdjustment: number;
+  jvLoadFailed: boolean;
   generatedAt: Date;
 }
 
@@ -206,6 +210,7 @@ export async function computeConsolidatedBalanceSheet(year: number, locale: Loca
     investmentInJointVenture: jv.investmentCarrying,
     hasJointVenture: jv.hasJointVenture,
     jvBalanceAdjustment: jv.balanceAdjustment,
+    jvLoadFailed: jv.loadFailed,
     generatedAt: new Date(),
   };
 }
